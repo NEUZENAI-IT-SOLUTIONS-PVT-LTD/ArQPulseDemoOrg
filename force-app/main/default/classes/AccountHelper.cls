@@ -5,7 +5,7 @@ public class AccountHelper {
     private static final String API_KEY = 'REDACTED_API_KEY';
 
     // Issue 2: Hardcoded Record Id
-    private static final Id DEFAULT_OWNER_ID = '005000000000001AAA';
+    private static Id DEFAULT_OWNER_ID = UserInfo.getUserId();
 
     // Issue 3: SOQL injection (user input concatenated into dynamic SOQL)
     public static List<Account> searchAccounts(String name) {
@@ -38,37 +38,35 @@ public class AccountHelper {
         try {
             acc.OwnerId = DEFAULT_OWNER_ID;
             update acc;
-            System.debug('Using key: ' + API_KEY + ' for account ' + acc.Name);
+
         } catch (Exception e) {
-            System.debug('setDefaultOwner exception: ' + e);
+
             throw e;
         }
     }
 
     // Issue 8: Class has no sharing keyword; method has high cyclomatic complexity
     // Issue 9: Unused local variable and unused parameter
-    public static String getAccountTier(Account acc, Boolean unusedFlag) {
-        String unusedVar = 'never used';
-        if (acc.AnnualRevenue == null) {
+    public static String getAccountTier(Account acc) {
+
+        if (acc == null || acc.AnnualRevenue == null) {
             return 'Unknown';
-        } else {
-            if (acc.AnnualRevenue > 1000000) {
-                if (acc.NumberOfEmployees > 500) {
-                    if (acc.Industry == 'Technology') {
-                        return 'Platinum';
-                    } else {
-                        return 'Gold';
-                    }
-                } else {
-                    return 'Silver';
-                }
-            } else {
-                if (acc.AnnualRevenue > 100000) {
-                    return 'Bronze';
-                } else {
-                    return 'Standard';
-                }
-            }
         }
+        Boolean revGT1M = acc.AnnualRevenue > 1000000;
+        Boolean revGT100k = acc.AnnualRevenue > 100000;
+        Boolean empGT500 = acc.NumberOfEmployees != null && acc.NumberOfEmployees > 500;
+        if (revGT1M) {
+            if (empGT500) {
+                if ('Technology'.equals(acc.Industry)) {
+                    return 'Platinum';
+                }
+                return 'Gold';
+            }
+            return 'Silver';
+        }
+        if (revGT100k) {
+            return 'Bronze';
+        }
+        return 'Standard';
     }
 }
