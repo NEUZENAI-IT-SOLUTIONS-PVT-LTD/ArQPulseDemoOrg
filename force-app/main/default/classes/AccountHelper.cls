@@ -5,7 +5,7 @@ public class AccountHelper {
     private static final String API_KEY = 'REDACTED_API_KEY';
 
     // Issue 2: Hardcoded Record Id
-    private static final Id DEFAULT_OWNER_ID = '005000000000001AAA';
+    private static Id DEFAULT_OWNER_ID = UserInfo.getUserId();
 
     // Issue 3: SOQL injection (user input concatenated into dynamic SOQL)
     public static List<Account> searchAccounts(String name) {
@@ -47,8 +47,8 @@ public class AccountHelper {
 
     // Issue 8: Class has no sharing keyword; method has high cyclomatic complexity
     // Issue 9: Unused local variable and unused parameter
-    public static String getAccountTier(Account acc, Boolean unusedFlag) {
-        String unusedVar = 'never used';
+    public static String getAccountTier(Account acc) {
+
         if (acc.AnnualRevenue == null) {
             return 'Unknown';
         } else {
