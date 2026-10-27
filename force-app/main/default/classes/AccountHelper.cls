@@ -5,7 +5,7 @@ public class AccountHelper {
     private static final String API_KEY = 'REDACTED_API_KEY';
 
     // Issue 2: Hardcoded Record Id
-    private static Id getDefaultOwnerId() { return UserInfo.getUserId(); }
+    private static final Id DEFAULT_OWNER_ID = '005000000000001AAA';
 
     // Issue 3: SOQL injection (user input concatenated into dynamic SOQL)
     public static List<Account> searchAccounts(String name) {
@@ -36,7 +36,7 @@ public class AccountHelper {
     // Issue 7: System.debug of sensitive data
     public static void setDefaultOwner(Account acc) {
         try {
-            acc.OwnerId = getDefaultOwnerId();
+            acc.OwnerId = DEFAULT_OWNER_ID;
             update acc;
             System.debug('Using key: ' + API_KEY + ' for account ' + acc.Name);
         } catch (Exception e) {
@@ -47,8 +47,8 @@ public class AccountHelper {
 
     // Issue 8: Class has no sharing keyword; method has high cyclomatic complexity
     // Issue 9: Unused local variable and unused parameter
-    public static String getAccountTier(Account acc) {
-        Object unusedVar = null; unusedVar = unusedVar;
+    public static String getAccountTier(Account acc, Boolean unusedFlag) {
+        String unusedVar = 'never used';
         if (acc.AnnualRevenue == null) {
             return 'Unknown';
         } else {
