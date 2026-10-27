@@ -16,12 +16,16 @@ public class AccountHelper {
     // Issue 4: SOQL and DML inside a loop (governor limits)
     // Issue 5: No CRUD/FLS enforcement (no WITH USER_MODE / stripInaccessible)
     public static void updateAccountContacts(List<Account> accounts) {
+        List<Contact> contactsToUpdate = new List<Contact>();
         for (Account acc : accounts) {
             List<Contact> contacts = [SELECT Id, LastName FROM Contact WHERE AccountId = :acc.Id];
             for (Contact con : contacts) {
                 con.Description = 'Updated by helper';
-                update con;
+                contactsToUpdate.add(con);
             }
+        }
+        if (!contactsToUpdate.isEmpty()) {
+            update contactsToUpdate;
         }
     }
 
@@ -33,6 +37,7 @@ public class AccountHelper {
             update acc;
             System.debug('Using key: ' + API_KEY + ' for account ' + acc.Name);
         } catch (Exception e) {
+            System.debug('setDefaultOwner exception: ' + e);
         }
     }
 
