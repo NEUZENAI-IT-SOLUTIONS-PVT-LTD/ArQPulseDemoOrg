@@ -17,9 +17,12 @@ public class AccountHelper {
     // Issue 5: No CRUD/FLS enforcement (no WITH USER_MODE / stripInaccessible)
     public static void updateAccountContacts(List<Account> accounts) {
         List<Contact> contactsToUpdate = new List<Contact>();
+        Set<Id> acctIds = new Set<Id>();
         for (Account acc : accounts) {
-            List<Contact> contacts = [SELECT Id, LastName FROM Contact WHERE AccountId = :acc.Id];
-            for (Contact con : contacts) {
+            acctIds.add(acc.Id);
+        }
+        if (!acctIds.isEmpty()) {
+            for (Contact con : [SELECT Id, LastName FROM Contact WHERE AccountId IN :acctIds]) {
                 con.Description = 'Updated by helper';
                 contactsToUpdate.add(con);
             }
@@ -38,6 +41,7 @@ public class AccountHelper {
             System.debug('Using key: ' + API_KEY + ' for account ' + acc.Name);
         } catch (Exception e) {
             System.debug('setDefaultOwner exception: ' + e);
+            throw e;
         }
     }
 
