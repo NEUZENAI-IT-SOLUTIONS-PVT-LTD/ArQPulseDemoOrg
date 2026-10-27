@@ -1,11 +1,11 @@
 // DEMO ONLY: this class intentionally contains code quality / security issues.
-public class AccountHelper {
+public without sharing class AccountHelper {
 
     // Issue 1: Hardcoded credential (secret in source)
     private static final String API_KEY = 'REDACTED_API_KEY';
 
     // Issue 2: Hardcoded Record Id
-    private static Id DEFAULT_OWNER_ID = UserInfo.getUserId();
+
 
     // Issue 3: SOQL injection (user input concatenated into dynamic SOQL)
     public static List<Account> searchAccounts(String name) {
@@ -36,7 +36,7 @@ public class AccountHelper {
     // Issue 7: System.debug of sensitive data
     public static void setDefaultOwner(Account acc) {
         try {
-            acc.OwnerId = DEFAULT_OWNER_ID;
+            acc.OwnerId = UserInfo.getUserId();
             update acc;
 
         } catch (Exception e) {
@@ -52,19 +52,17 @@ public class AccountHelper {
         if (acc == null || acc.AnnualRevenue == null) {
             return 'Unknown';
         }
-        Boolean revGT1M = acc.AnnualRevenue > 1000000;
-        Boolean revGT100k = acc.AnnualRevenue > 100000;
-        Boolean empGT500 = acc.NumberOfEmployees != null && acc.NumberOfEmployees > 500;
-        if (revGT1M) {
-            if (empGT500) {
-                if ('Technology'.equals(acc.Industry)) {
-                    return 'Platinum';
-                }
+        if (acc.AnnualRevenue > 1000000) {
+            Boolean manyEmployees = acc.NumberOfEmployees != null && acc.NumberOfEmployees > 500;
+            if (manyEmployees && 'Technology'.equals(acc.Industry)) {
+                return 'Platinum';
+            }
+            if (manyEmployees) {
                 return 'Gold';
             }
             return 'Silver';
         }
-        if (revGT100k) {
+        if (acc.AnnualRevenue > 100000) {
             return 'Bronze';
         }
         return 'Standard';
