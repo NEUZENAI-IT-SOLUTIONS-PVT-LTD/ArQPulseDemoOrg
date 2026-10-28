@@ -78,4 +78,4 @@ public without sharing class AccountHelper {
         return 'Silver';
     }
     }
-}
+
