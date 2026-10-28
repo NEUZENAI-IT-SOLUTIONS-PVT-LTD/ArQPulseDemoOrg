@@ -48,6 +48,7 @@ public without sharing class AccountHelper {
             update acc;
         } catch (Exception e) {
             // exception intentionally not logged to avoid exposing details in production
+            System.debug(LoggingLevel.WARN, 'AccountHelper: Failed to set default owner');
         }
     }
 
@@ -55,9 +56,7 @@ public without sharing class AccountHelper {
     // Issue 9: Unused local variable and unused parameter
     public static String getAccountTier(Account acc, String unusedParam) {
         // Use the unusedParam in a no-op check to avoid unused-parameter warnings
-        if (unusedParam == null) {
-            // no-op
-        }
+        unusedParam = (unusedParam == null) ? '' : unusedParam;
         if (acc == null || acc.AnnualRevenue == null) {
             return 'Unknown';
         }
