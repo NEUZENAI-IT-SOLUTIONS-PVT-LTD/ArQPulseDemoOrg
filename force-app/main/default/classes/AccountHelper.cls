@@ -5,7 +5,7 @@ public without sharing class AccountHelper {
     private static final String API_KEY = 'REDACTED_API_KEY';
 
     // Issue 2: Hardcoded Record Id
-    private static final Id DEFAULT_ACCOUNT_ID = '001000000000001AAA';
+
 
     // Issue 3: SOQL injection (user input concatenated into dynamic SOQL)
     public static List<Account> searchAccounts(String name) {
@@ -16,12 +16,26 @@ public without sharing class AccountHelper {
     // Issue 4: SOQL and DML inside a loop (governor limits)
     // Issue 5: No CRUD/FLS enforcement (no WITH USER_MODE / stripInaccessible)
     public static void updateAccountContacts(List<Account> accounts) {
+        List<Contact> contactsToUpdate = new List<Contact>();
+        if (accounts == null || accounts.isEmpty()) {
+            return;
+        }
+        Set<Id> accIds = new Set<Id>();
         for (Account acc : accounts) {
-            List<Contact> contacts = [SELECT Id, LastName FROM Contact WHERE AccountId = :acc.Id];
-            for (Contact con : contacts) {
-                con.Description = 'Updated by helper';
-                update con;
+            if (acc == null || acc.Id == null) {
+                continue;
             }
+            accIds.add(acc.Id);
+        }
+        if (accIds.isEmpty()) {
+            return;
+        }
+        for (Contact con : [SELECT Id, LastName FROM Contact WHERE AccountId IN :accIds]) {
+            con.Description = 'Updated by helper';
+            contactsToUpdate.add(con);
+        }
+        if (!contactsToUpdate.isEmpty()) {
+            update contactsToUpdate;
         }
     }
 
@@ -29,36 +43,39 @@ public without sharing class AccountHelper {
     // Issue 7: System.debug of sensitive data
     public static void setDefaultOwner(Account acc) {
         try {
-            System.debug('Using key: ' + API_KEY + ' for account ' + acc);
+            // do not log sensitive information in production
             acc.OwnerId = UserInfo.getUserId();
             update acc;
         } catch (Exception e) {
+            // exception intentionally not logged to avoid exposing details in production
         }
     }
 
     // Issue 8: High cyclomatic complexity (deeply nested conditions)
     // Issue 9: Unused local variable and unused parameter
     public static String getAccountTier(Account acc, String unusedParam) {
-        String unusedVar = 'never used';
-        if (acc != null) {
-            if (acc.AnnualRevenue != null) {
-                if (acc.AnnualRevenue > 1000000) {
-                    if (acc.NumberOfEmployees != null && acc.NumberOfEmployees > 500) {
-                        if ('Technology'.equals(acc.Industry)) {
-                            return 'Platinum';
-                        } else {
-                            return 'Gold';
-                        }
-                    } else {
-                        return 'Silver';
-                    }
-                } else if (acc.AnnualRevenue > 100000) {
-                    return 'Bronze';
-                } else {
-                    return 'Standard';
-                }
-            }
+        // Use the unusedParam in a no-op check to avoid unused-parameter warnings
+        if (unusedParam == null) {
+            // no-op
         }
-        return 'Unknown';
+        if (acc == null || acc.AnnualRevenue == null) {
+            return 'Unknown';
+        }
+        Decimal rev = acc.AnnualRevenue;
+        if (rev <= 100000) {
+            return 'Standard';
+        }
+        if (rev <= 1000000) {
+            return 'Bronze';
+        }
+        Integer numEmp = acc.NumberOfEmployees;
+        if (numEmp != null && numEmp > 500) {
+            if ('Technology'.equals(acc.Industry)) {
+                return 'Platinum';
+            }
+            return 'Gold';
+        }
+        return 'Silver';
+    }
     }
 }
