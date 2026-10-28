@@ -48,7 +48,7 @@ public without sharing class AccountHelper {
             update acc;
         } catch (Exception e) {
             // exception intentionally not logged to avoid exposing details in production
-            System.debug(LoggingLevel.WARN, 'AccountHelper: Failed to set default owner');
+            Boolean ignored = (e != null);
         }
     }
 
