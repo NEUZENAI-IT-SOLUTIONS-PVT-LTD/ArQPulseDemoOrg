@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Expected_Delivery_Date__c</fullName>
+    <label>Expected Delivery Date</label>
+    <description
+  >Date the customer can expect delivery. Read by the order-support voice agent and spoken to verified customers.</description>
+    <inlineHelpText
+  >Promised delivery date. Customers hear this date from the voice agent, so update it when the carrier estimate changes.</inlineHelpText>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <type>Date</type>
+</CustomField>

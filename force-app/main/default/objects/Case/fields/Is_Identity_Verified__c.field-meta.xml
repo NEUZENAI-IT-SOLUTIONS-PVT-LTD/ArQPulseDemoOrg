@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Is_Identity_Verified__c</fullName>
+    <label>Is Identity Verified</label>
+    <description
+  >True only when the voice agent verified the caller with an emailed one-time code before creating this handoff case.</description>
+    <inlineHelpText
+  >Checked means the caller proved access to the contact's email during the call. Unchecked means the caller is not verified.</inlineHelpText>
+    <defaultValue>false</defaultValue>
+    <trackHistory>false</trackHistory>
+    <type>Checkbox</type>
+</CustomField>

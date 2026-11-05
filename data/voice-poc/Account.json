@@ -1,0 +1,36 @@
+{
+  "records": [
+    {
+      "attributes": {
+        "type": "Account",
+        "referenceId": "AcctA"
+      },
+      "Name": "Rivera Household",
+      "Description": "Voice POC seed data"
+    },
+    {
+      "attributes": {
+        "type": "Account",
+        "referenceId": "AcctB"
+      },
+      "Name": "Nair Household",
+      "Description": "Voice POC seed data"
+    },
+    {
+      "attributes": {
+        "type": "Account",
+        "referenceId": "AcctC"
+      },
+      "Name": "Okafor Household",
+      "Description": "Voice POC seed data"
+    },
+    {
+      "attributes": {
+        "type": "Account",
+        "referenceId": "AcctD"
+      },
+      "Name": "Shared Inbox Customers",
+      "Description": "Voice POC seed data"
+    }
+  ]
+}

@@ -1,0 +1,54 @@
+{
+  "records": [
+    {
+      "attributes": {
+        "type": "Contact",
+        "referenceId": "ContactA"
+      },
+      "FirstName": "Alex",
+      "LastName": "Rivera",
+      "Email": "bkareti@gmail.com",
+      "AccountId": "@AcctA"
+    },
+    {
+      "attributes": {
+        "type": "Contact",
+        "referenceId": "ContactB"
+      },
+      "FirstName": "Priya",
+      "LastName": "Nair",
+      "Email": "priya.nair@example.com",
+      "AccountId": "@AcctB"
+    },
+    {
+      "attributes": {
+        "type": "Contact",
+        "referenceId": "ContactC"
+      },
+      "FirstName": "Sam",
+      "LastName": "Okafor",
+      "Email": "sam.okafor@example.com",
+      "AccountId": "@AcctC"
+    },
+    {
+      "attributes": {
+        "type": "Contact",
+        "referenceId": "ContactD1"
+      },
+      "FirstName": "Jordan",
+      "LastName": "Lee",
+      "Email": "shared.inbox@example.com",
+      "AccountId": "@AcctD"
+    },
+    {
+      "attributes": {
+        "type": "Contact",
+        "referenceId": "ContactD2"
+      },
+      "FirstName": "Casey",
+      "LastName": "Lee",
+      "Email": "shared.inbox@example.com",
+      "AccountId": "@AcctD"
+    }
+  ]
+}
