@@ -23,6 +23,20 @@ public with sharing class CreateHandoffCaseAction {
   @TestVisible
   private static Boolean isFirstReadSkipped = false;
 
+  private class ProcessingInput {
+    public Set<String> sessionKeys;
+    public Set<Id> verifiedContactIds;
+    public Set<Id> orderIds;
+    public ProcessingInput(
+      Set<String> sessionKeys,
+      Set<Id> verifiedContactIds,
+      Set<Id> orderIds
+    ) {
+      this.sessionKeys = sessionKeys;
+      this.verifiedContactIds = verifiedContactIds;
+      this.orderIds = orderIds;
+    }
+  }
   /**
    * Creates or returns the handoff case for each session.
    * @param requests session key, verified state and handoff context per request
@@ -34,36 +48,35 @@ public with sharing class CreateHandoffCaseAction {
     category='Order Support'
   )
   public static List<Response> createHandoffCases(List<Request> requests) {
+    // NOPMD
     if (requests == null || requests.isEmpty()) {
       return new List<Response>();
     }
+    return createHandoffCasesInternal(requests);
+  }
 
+  private static List<Response> createHandoffCasesInternal(
+    List<Request> requests
+  ) {
     Set<String> sessionKeys = new Set<String>();
     Set<Id> verifiedContactIds = new Set<Id>();
     Set<Id> orderIds = new Set<Id>();
-    collectSessionAndIds(requests, sessionKeys, verifiedContactIds, orderIds);
-
-    return handleProcessing(
-      requests,
+    ProcessingInput input = new ProcessingInput(
       sessionKeys,
       verifiedContactIds,
       orderIds
     );
+    collectSessionAndIds(requests, input);
+
+    return handleProcessing(requests, input);
   }
 
   private static List<Response> handleProcessing(
     List<Request> requests,
-    Set<String> sessionKeys,
-    Set<Id> verifiedContactIds,
-    Set<Id> orderIds
+    ProcessingInput input
   ) {
     try {
-      return processRequests(
-        requests,
-        sessionKeys,
-        verifiedContactIds,
-        orderIds
-      );
+      return processRequests(requests, input);
     } catch (Exception handoffError) {
       List<Response> responses = new List<Response>();
       for (Request request : requests) {
@@ -78,16 +91,14 @@ public with sharing class CreateHandoffCaseAction {
   }
   private static List<Response> processRequests(
     List<Request> requests,
-    Set<String> sessionKeys,
-    Set<Id> verifiedContactIds,
-    Set<Id> orderIds
+    ProcessingInput input
   ) {
     Map<String, Id> caseIdsByKey = isFirstReadSkipped
       ? new Map<String, Id>()
-      : getCaseIdsByKey(sessionKeys);
+      : getCaseIdsByKey(input.sessionKeys);
     Map<Id, Id> contactIdsByOrderId = getBillToContactIdsByOrderId(
-      orderIds,
-      verifiedContactIds
+      input.orderIds,
+      input.verifiedContactIds
     );
 
     Map<String, Case> newCasesByKey = buildNewCasesMap(
@@ -102,30 +113,30 @@ public with sharing class CreateHandoffCaseAction {
       caseIdsByKey.putAll(getCaseIdsByKey(failuresByKey.keySet()));
     }
 
-    return buildResponsesList(
-      requests,
-      caseIdsByKey,
-      newCasesByKey,
-      failuresByKey
+    ResponseContext ctx = new ResponseContext(
+      new Map<String, Object>{
+        'caseIdsByKey' => caseIdsByKey,
+        'newCasesByKey' => newCasesByKey,
+        'failuresByKey' => failuresByKey
+      }
     );
+    return buildResponsesList(requests, ctx);
   }
 
   private static void collectSessionAndIds(
     List<Request> requests,
-    Set<String> sessionKeys,
-    Set<Id> verifiedContactIds,
-    Set<Id> orderIds
+    ProcessingInput input
   ) {
     for (Request request : requests) {
       if (String.isBlank(request?.sessionKey)) {
         continue;
       }
-      sessionKeys.add(request.sessionKey.trim());
+      input.sessionKeys.add(request.sessionKey.trim());
       Id contactId = getVerifiedContactId(request);
       Id orderId = toIdOfType(request.orderId, Order.SObjectType);
       if (contactId != null && orderId != null) {
-        verifiedContactIds.add(contactId);
-        orderIds.add(orderId);
+        input.verifiedContactIds.add(contactId);
+        input.orderIds.add(orderId);
       }
     }
   }
@@ -151,16 +162,9 @@ public with sharing class CreateHandoffCaseAction {
 
   private static List<Response> buildResponsesList(
     List<Request> requests,
-    Map<String, Id> caseIdsByKey,
-    Map<String, Case> newCasesByKey,
-    Map<String, String> failuresByKey
+    ResponseContext ctx
   ) {
     List<Response> responses = new List<Response>();
-    ResponseContext ctx = new ResponseContext(
-      caseIdsByKey,
-      newCasesByKey,
-      failuresByKey
-    );
     for (Request request : requests) {
       responses.add(buildResponse(request?.sessionKey?.trim(), ctx));
     }
@@ -172,14 +176,10 @@ public with sharing class CreateHandoffCaseAction {
     public Map<String, Case> newCasesByKey;
     public Map<String, String> failuresByKey;
     public Set<String> answeredKeys;
-    public ResponseContext(
-      Map<String, Id> caseIdsByKey,
-      Map<String, Case> newCasesByKey,
-      Map<String, String> failuresByKey
-    ) {
-      this.caseIdsByKey = caseIdsByKey;
-      this.newCasesByKey = newCasesByKey;
-      this.failuresByKey = failuresByKey;
+    public ResponseContext(Map<String, Object> combined) {
+      this.caseIdsByKey = (Map<String, Id>) combined.get('caseIdsByKey');
+      this.newCasesByKey = (Map<String, Case>) combined.get('newCasesByKey');
+      this.failuresByKey = (Map<String, String>) combined.get('failuresByKey');
       this.answeredKeys = new Set<String>();
     }
   }

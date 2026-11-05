@@ -31,19 +31,29 @@ public with sharing class GetOrderStatusAction {
     if (requests == null || requests.isEmpty()) {
       return new List<Response>();
     }
+    return doGetOrderStatus(requests);
+  }
+
+  private static List<Response> doGetOrderStatus(List<Request> requests) {
     List<String> keys = new List<String>();
     Set<Id> contactIds = new Set<Id>();
     Set<String> orderNumbers = new Set<String>();
     buildLookupSets(requests, keys, contactIds, orderNumbers);
 
-    Map<String, Order> ordersByKey;
+    return performLookupAndBuildResponses(keys, contactIds, orderNumbers);
+  }
+
+  private static List<Response> performLookupAndBuildResponses(
+    List<String> keys,
+    Set<Id> contactIds,
+    Set<String> orderNumbers
+  ) {
     try {
-      ordersByKey = getOrdersByKey(contactIds, orderNumbers);
+      Map<String, Order> ordersByKey = getOrdersByKey(contactIds, orderNumbers);
+      return buildResponsesForKeys(ordersByKey, keys);
     } catch (Exception queryError) {
       return buildResponsesForAllKeysOnQueryError(keys, queryError);
     }
-
-    return buildResponsesForKeys(ordersByKey, keys);
   }
 
   private static void buildLookupSets(
@@ -141,7 +151,7 @@ public with sharing class GetOrderStatusAction {
       return candidate.getSObjectType() == Contact.SObjectType
         ? candidate
         : null;
-    } catch (StringException invalidId) {
+    } catch (Exception invalidId) {
       return null;
     }
   }

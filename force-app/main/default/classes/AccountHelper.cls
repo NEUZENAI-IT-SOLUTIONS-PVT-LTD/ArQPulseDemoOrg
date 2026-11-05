@@ -49,20 +49,14 @@ public without sharing class AccountHelper {
       acc.OwnerId = UserInfo.getUserId();
       update acc;
     } catch (Exception e) {
-      // Log only the exception type to avoid exposing sensitive details.
-      System.debug(
-        LoggingLevel.WARN,
-        'setDefaultOwner caught exception: ' + e.getTypeName()
-      );
+      // Re-throw to allow the caller to handle the exception appropriately.
+      throw e;
     }
   }
 
   // Issue 8: High cyclomatic complexity (deeply nested conditions)
-  // Issue 9: Unused local variable and unused parameter
+  // Issue 8: High cyclomatic complexity (deeply nested conditions) and Issue 9: Unused local variable and unused parameter
   public static String getAccountTier(Account acc, String unusedParam) {
-    if (unusedParam == null) {
-      unusedParam = '';
-    }
     if (acc == null || acc.AnnualRevenue == null) {
       return 'Unknown';
     }
