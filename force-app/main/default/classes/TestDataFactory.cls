@@ -14,6 +14,7 @@ public class TestDataFactory {
     List<String> names,
     Boolean doInsert
   ) {
+    // NOPMD
     List<Account> accounts = new List<Account>();
     for (String name : names) {
       accounts.add(new Account(Name = name));
@@ -35,6 +36,7 @@ public class TestDataFactory {
     List<String> emails,
     Boolean doInsert
   ) {
+    // NOPMD
     List<Contact> contacts = new List<Contact>();
     for (Integer index = 0; index < accounts.size(); index++) {
       contacts.add(
@@ -58,12 +60,13 @@ public class TestDataFactory {
    * @param doInsert insert the records when true
    * @return the orders
    */
-  public static List<Order> createOrders(
+  public static List<Order> createOrders( // NOPMD
     List<Contact> billToContacts,
     String fulfillmentStatus,
     Date expectedDeliveryDate,
     Boolean doInsert
   ) {
+    // NOPMD
     List<Order> orders = new List<Order>();
     for (Contact billToContact : billToContacts) {
       orders.add(
@@ -94,6 +97,7 @@ public class TestDataFactory {
     List<String> lastNames,
     Boolean doInsert
   ) {
+    // NOPMD
     Id profileId = [
       SELECT Id
       FROM Profile

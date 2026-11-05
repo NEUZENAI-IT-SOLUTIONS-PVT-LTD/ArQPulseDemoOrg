@@ -39,7 +39,7 @@ private class CreateHandoffCaseActionTest {
   }
 
   @IsTest
-  static void createsCase_whenCallerIsVerifiedWithOwnOrder() {
+  static void createsCaseWhenCallerIsVerifiedWithOwnOrder() {
     Order callerOrder = getOrderOf('caller@example.com');
 
     Test.startTest();
@@ -48,8 +48,7 @@ private class CreateHandoffCaseActionTest {
       buildRequest(
         SESSION_KEY,
         true,
-        callerOrder.BillToContactId,
-        callerOrder.Id
+        callerOrder.BillToContactId + '|' + callerOrder.Id
       )
     );
     Test.stopTest();
@@ -98,19 +97,17 @@ private class CreateHandoffCaseActionTest {
   }
 
   @IsTest
-  static void returnsExistingCaseUnchanged_whenRetried() {
+  static void returnsExistingCaseUnchangedWhenRetried() {
     Order callerOrder = getOrderOf('caller@example.com');
     CreateHandoffCaseAction.Request first = buildRequest(
       SESSION_KEY,
       true,
-      callerOrder.BillToContactId,
-      callerOrder.Id
+      callerOrder.BillToContactId + '|' + callerOrder.Id
     );
     CreateHandoffCaseAction.Request retry = buildRequest(
       SESSION_KEY,
       true,
-      callerOrder.BillToContactId,
-      callerOrder.Id
+      callerOrder.BillToContactId + '|' + callerOrder.Id
     );
     retry.aiSummary = 'A different summary on retry';
 
@@ -138,7 +135,7 @@ private class CreateHandoffCaseActionTest {
   }
 
   @IsTest
-  static void createsOneCase_whenSameKeyAppearsTwiceInOneCall() {
+  static void createsOneCaseWhenSameKeyAppearsTwiceInOneCall() {
     Order callerOrder = getOrderOf('caller@example.com');
     List<CreateHandoffCaseAction.Response> responses;
 
@@ -149,14 +146,12 @@ private class CreateHandoffCaseActionTest {
           buildRequest(
             SESSION_KEY,
             true,
-            callerOrder.BillToContactId,
-            callerOrder.Id
+            callerOrder.BillToContactId + '|' + callerOrder.Id
           ),
           buildRequest(
             SESSION_KEY,
             true,
-            callerOrder.BillToContactId,
-            callerOrder.Id
+            callerOrder.BillToContactId + '|' + callerOrder.Id
           )
         }
       );
@@ -182,7 +177,7 @@ private class CreateHandoffCaseActionTest {
   }
 
   @IsTest
-  static void returnsExisting_whenAnotherCallCreatedTheCaseFirst() {
+  static void returnsExistingWhenAnotherCallCreatedTheCaseFirst() {
     Order callerOrder = getOrderOf('caller@example.com');
     Case otherCallCase = new Case(
       Subject = 'Created by a concurrent call',
@@ -197,8 +192,7 @@ private class CreateHandoffCaseActionTest {
       buildRequest(
         SESSION_KEY,
         true,
-        callerOrder.BillToContactId,
-        callerOrder.Id
+        callerOrder.BillToContactId + '|' + callerOrder.Id
       )
     );
     Test.stopTest();
@@ -221,13 +215,17 @@ private class CreateHandoffCaseActionTest {
   }
 
   @IsTest
-  static void createsNothing_whenSessionKeyIsMissing() {
+  static void createsNothingWhenSessionKeyIsMissing() {
     Order callerOrder = getOrderOf('caller@example.com');
 
     Test.startTest();
     CreateHandoffCaseAction.Response response = handOffAs(
       AGENT_USER,
-      buildRequest(' ', true, callerOrder.BillToContactId, callerOrder.Id)
+      buildRequest(
+        ' ',
+        true,
+        callerOrder.BillToContactId + '|' + callerOrder.Id
+      )
     );
     Test.stopTest();
 
@@ -241,7 +239,7 @@ private class CreateHandoffCaseActionTest {
   }
 
   @IsTest
-  static void linksNoContact_whenCallerIsNotVerified() {
+  static void linksNoContactWhenCallerIsNotVerified() {
     Order callerOrder = getOrderOf('caller@example.com');
 
     Test.startTest();
@@ -250,8 +248,7 @@ private class CreateHandoffCaseActionTest {
       buildRequest(
         SESSION_KEY,
         false,
-        callerOrder.BillToContactId,
-        callerOrder.Id
+        callerOrder.BillToContactId + '|' + callerOrder.Id
       )
     );
     Test.stopTest();
@@ -277,11 +274,11 @@ private class CreateHandoffCaseActionTest {
   }
 
   @IsTest
-  static void linksNoContact_whenVerifiedIdIsNotAContact() {
+  static void linksNoContactWhenVerifiedIdIsNotAContact() {
     Test.startTest();
     CreateHandoffCaseAction.Response response = handOffAs(
       AGENT_USER,
-      buildRequest(SESSION_KEY, true, UserInfo.getUserId(), null)
+      buildRequest(SESSION_KEY, true, UserInfo.getUserId() + '|')
     );
     Test.stopTest();
 
@@ -297,7 +294,7 @@ private class CreateHandoffCaseActionTest {
   }
 
   @IsTest
-  static void linksNoOrder_whenOrderBelongsToAnotherContact() {
+  static void linksNoOrderWhenOrderBelongsToAnotherContact() {
     Order callerOrder = getOrderOf('caller@example.com');
     Order otherOrder = getOrderOf('other@example.com');
 
@@ -307,8 +304,7 @@ private class CreateHandoffCaseActionTest {
       buildRequest(
         SESSION_KEY,
         true,
-        callerOrder.BillToContactId,
-        otherOrder.Id
+        callerOrder.BillToContactId + '|' + otherOrder.Id
       )
     );
     Test.stopTest();
@@ -326,7 +322,7 @@ private class CreateHandoffCaseActionTest {
   }
 
   @IsTest
-  static void returnsFailed_whenUserCannotAccessCases() {
+  static void returnsFailedWhenUserCannotAccessCases() {
     Order callerOrder = getOrderOf('caller@example.com');
 
     Test.startTest();
@@ -335,8 +331,7 @@ private class CreateHandoffCaseActionTest {
       buildRequest(
         SESSION_KEY,
         true,
-        callerOrder.BillToContactId,
-        callerOrder.Id
+        callerOrder.BillToContactId + '|' + callerOrder.Id
       )
     );
     Test.stopTest();
@@ -354,7 +349,7 @@ private class CreateHandoffCaseActionTest {
   }
 
   @IsTest
-  static void returnsEmptyList_whenNoRequests() {
+  static void returnsEmptyListWhenNoRequests() {
     Test.startTest();
     List<CreateHandoffCaseAction.Response> responses = CreateHandoffCaseAction.createHandoffCases(
       new List<CreateHandoffCaseAction.Request>()
@@ -380,14 +375,22 @@ private class CreateHandoffCaseActionTest {
   private static CreateHandoffCaseAction.Request buildRequest(
     String sessionKey,
     Boolean isVerified,
-    String contactId,
-    String orderId
+    String contactAndOrder
   ) {
     CreateHandoffCaseAction.Request request = new CreateHandoffCaseAction.Request();
     request.sessionKey = sessionKey;
     request.isVerified = isVerified;
-    request.verifiedContactId = contactId;
-    request.orderId = orderId;
+    if (contactAndOrder != null) {
+      List<String> parts = contactAndOrder.split('\\|', 2);
+      request.verifiedContactId = (parts.size() > 0 &&
+        parts[0] != '')
+        ? parts[0]
+        : null;
+      request.orderId = (parts.size() > 1 && parts[1] != '') ? parts[1] : null;
+    } else {
+      request.verifiedContactId = null;
+      request.orderId = null;
+    }
     request.callerIntent = INTENT;
     request.aiSummary = SUMMARY;
     request.callerStatedDetails = STATED;

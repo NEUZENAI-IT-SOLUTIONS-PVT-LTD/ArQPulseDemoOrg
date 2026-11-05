@@ -34,14 +34,88 @@ public with sharing class CreateHandoffCaseAction {
     category='Order Support'
   )
   public static List<Response> createHandoffCases(List<Request> requests) {
-    List<Response> responses = new List<Response>();
     if (requests == null || requests.isEmpty()) {
-      return responses;
+      return new List<Response>();
     }
 
     Set<String> sessionKeys = new Set<String>();
     Set<Id> verifiedContactIds = new Set<Id>();
     Set<Id> orderIds = new Set<Id>();
+    collectSessionAndIds(requests, sessionKeys, verifiedContactIds, orderIds);
+
+    return handleProcessing(
+      requests,
+      sessionKeys,
+      verifiedContactIds,
+      orderIds
+    );
+  }
+
+  private static List<Response> handleProcessing(
+    List<Request> requests,
+    Set<String> sessionKeys,
+    Set<Id> verifiedContactIds,
+    Set<Id> orderIds
+  ) {
+    try {
+      return processRequests(
+        requests,
+        sessionKeys,
+        verifiedContactIds,
+        orderIds
+      );
+    } catch (Exception handoffError) {
+      List<Response> responses = new List<Response>();
+      for (Request request : requests) {
+        responses.add(
+          String.isBlank(request?.sessionKey)
+            ? new Response(OUTCOME_MISSING_SESSION_KEY, null)
+            : new Response(OUTCOME_FAILED, null, handoffError.getTypeName())
+        );
+      }
+      return responses;
+    }
+  }
+  private static List<Response> processRequests(
+    List<Request> requests,
+    Set<String> sessionKeys,
+    Set<Id> verifiedContactIds,
+    Set<Id> orderIds
+  ) {
+    Map<String, Id> caseIdsByKey = isFirstReadSkipped
+      ? new Map<String, Id>()
+      : getCaseIdsByKey(sessionKeys);
+    Map<Id, Id> contactIdsByOrderId = getBillToContactIdsByOrderId(
+      orderIds,
+      verifiedContactIds
+    );
+
+    Map<String, Case> newCasesByKey = buildNewCasesMap(
+      requests,
+      caseIdsByKey,
+      contactIdsByOrderId
+    );
+
+    Map<String, String> failuresByKey = insertCases(newCasesByKey);
+    if (!failuresByKey.isEmpty()) {
+      // A concurrent call may have created the case first; read the winners.
+      caseIdsByKey.putAll(getCaseIdsByKey(failuresByKey.keySet()));
+    }
+
+    return buildResponsesList(
+      requests,
+      caseIdsByKey,
+      newCasesByKey,
+      failuresByKey
+    );
+  }
+
+  private static void collectSessionAndIds(
+    List<Request> requests,
+    Set<String> sessionKeys,
+    Set<Id> verifiedContactIds,
+    Set<Id> orderIds
+  ) {
     for (Request request : requests) {
       if (String.isBlank(request?.sessionKey)) {
         continue;
@@ -54,82 +128,78 @@ public with sharing class CreateHandoffCaseAction {
         orderIds.add(orderId);
       }
     }
+  }
 
-    try {
-      Map<String, Id> caseIdsByKey = isFirstReadSkipped
-        ? new Map<String, Id>()
-        : getCaseIdsByKey(sessionKeys);
-      Map<Id, Id> contactIdsByOrderId = getBillToContactIdsByOrderId(
-        orderIds,
-        verifiedContactIds
-      );
+  private static Map<String, Case> buildNewCasesMap(
+    List<Request> requests,
+    Map<String, Id> caseIdsByKey,
+    Map<Id, Id> contactIdsByOrderId
+  ) {
+    Map<String, Case> newCasesByKey = new Map<String, Case>();
+    for (Request request : requests) {
+      String key = request?.sessionKey?.trim();
+      if (
+        String.isNotBlank(key) &&
+        !caseIdsByKey.containsKey(key) &&
+        !newCasesByKey.containsKey(key)
+      ) {
+        newCasesByKey.put(key, buildCase(request, key, contactIdsByOrderId));
+      }
+    }
+    return newCasesByKey;
+  }
 
-      Map<String, Case> newCasesByKey = new Map<String, Case>();
-      for (Request request : requests) {
-        String key = request?.sessionKey?.trim();
-        if (
-          String.isNotBlank(key) &&
-          !caseIdsByKey.containsKey(key) &&
-          !newCasesByKey.containsKey(key)
-        ) {
-          newCasesByKey.put(key, buildCase(request, key, contactIdsByOrderId));
-        }
-      }
-
-      Map<String, String> failuresByKey = insertCases(newCasesByKey);
-      if (!failuresByKey.isEmpty()) {
-        // A concurrent call may have created the case first; read the winners.
-        caseIdsByKey.putAll(getCaseIdsByKey(failuresByKey.keySet()));
-      }
-
-      Set<String> answeredKeys = new Set<String>();
-      for (Request request : requests) {
-        responses.add(
-          buildResponse(
-            request?.sessionKey?.trim(),
-            caseIdsByKey,
-            newCasesByKey,
-            failuresByKey,
-            answeredKeys
-          )
-        );
-      }
-    } catch (Exception handoffError) {
-      // The agent still transfers the caller; the failure is reported, not thrown.
-      responses.clear();
-      for (Request request : requests) {
-        responses.add(
-          String.isBlank(request?.sessionKey)
-            ? new Response(OUTCOME_MISSING_SESSION_KEY, null)
-            : new Response(OUTCOME_FAILED, null, handoffError.getTypeName())
-        );
-      }
+  private static List<Response> buildResponsesList(
+    List<Request> requests,
+    Map<String, Id> caseIdsByKey,
+    Map<String, Case> newCasesByKey,
+    Map<String, String> failuresByKey
+  ) {
+    List<Response> responses = new List<Response>();
+    ResponseContext ctx = new ResponseContext(
+      caseIdsByKey,
+      newCasesByKey,
+      failuresByKey
+    );
+    for (Request request : requests) {
+      responses.add(buildResponse(request?.sessionKey?.trim(), ctx));
     }
     return responses;
   }
 
-  private static Response buildResponse(
-    String key,
-    Map<String, Id> caseIdsByKey,
-    Map<String, Case> newCasesByKey,
-    Map<String, String> failuresByKey,
-    Set<String> answeredKeys
-  ) {
+  private class ResponseContext {
+    public Map<String, Id> caseIdsByKey;
+    public Map<String, Case> newCasesByKey;
+    public Map<String, String> failuresByKey;
+    public Set<String> answeredKeys;
+    public ResponseContext(
+      Map<String, Id> caseIdsByKey,
+      Map<String, Case> newCasesByKey,
+      Map<String, String> failuresByKey
+    ) {
+      this.caseIdsByKey = caseIdsByKey;
+      this.newCasesByKey = newCasesByKey;
+      this.failuresByKey = failuresByKey;
+      this.answeredKeys = new Set<String>();
+    }
+  }
+
+  private static Response buildResponse(String key, ResponseContext ctx) {
     if (String.isBlank(key)) {
       return new Response(OUTCOME_MISSING_SESSION_KEY, null);
     }
-    Case newCase = newCasesByKey.get(key);
-    Boolean isFirstAnswer = answeredKeys.add(key);
+    Case newCase = ctx.newCasesByKey.get(key);
+    Boolean isFirstAnswer = ctx.answeredKeys.add(key);
     if (newCase?.Id != null) {
       return new Response(
         isFirstAnswer ? OUTCOME_CREATED : OUTCOME_EXISTING,
         newCase.Id
       );
     }
-    if (caseIdsByKey.containsKey(key)) {
-      return new Response(OUTCOME_EXISTING, caseIdsByKey.get(key));
+    if (ctx.caseIdsByKey.containsKey(key)) {
+      return new Response(OUTCOME_EXISTING, ctx.caseIdsByKey.get(key));
     }
-    return new Response(OUTCOME_FAILED, null, failuresByKey.get(key));
+    return new Response(OUTCOME_FAILED, null, ctx.failuresByKey.get(key));
   }
 
   private static Case buildCase(

@@ -28,14 +28,30 @@ public with sharing class GetOrderStatusAction {
     category='Order Support'
   )
   public static List<Response> getOrderStatus(List<Request> requests) {
-    List<Response> responses = new List<Response>();
     if (requests == null || requests.isEmpty()) {
-      return responses;
+      return new List<Response>();
     }
-
+    List<String> keys = new List<String>();
     Set<Id> contactIds = new Set<Id>();
     Set<String> orderNumbers = new Set<String>();
-    List<String> keys = new List<String>();
+    buildLookupSets(requests, keys, contactIds, orderNumbers);
+
+    Map<String, Order> ordersByKey;
+    try {
+      ordersByKey = getOrdersByKey(contactIds, orderNumbers);
+    } catch (Exception queryError) {
+      return buildResponsesForAllKeysOnQueryError(keys, queryError);
+    }
+
+    return buildResponsesForKeys(ordersByKey, keys);
+  }
+
+  private static void buildLookupSets(
+    List<Request> requests,
+    List<String> keys,
+    Set<Id> contactIds,
+    Set<String> orderNumbers
+  ) {
     for (Request request : requests) {
       Id contactId = toContactId(request?.verifiedContactId);
       String orderNumber = normalizeOrderNumber(request?.orderNumber);
@@ -47,31 +63,15 @@ public with sharing class GetOrderStatusAction {
       orderNumbers.add(orderNumber);
       keys.add(buildKey(contactId, orderNumber));
     }
+  }
 
-    Map<String, Order> ordersByKey;
-    try {
-      ordersByKey = getOrdersByKey(contactIds, orderNumbers);
-    } catch (Exception queryError) {
-      // Access or platform failure: the agent must offer recovery, not say "not found".
-      for (String key : keys) {
-        responses.add(
-          key == null
-            ? new Response(OUTCOME_INVALID_INPUT)
-            : new Response(OUTCOME_TEMPORARY_FAILURE, queryError.getTypeName())
-        );
-      }
-      return responses;
-    }
-
+  private static List<Response> buildResponsesForKeys(
+    Map<String, Order> ordersByKey,
+    List<String> keys
+  ) {
+    List<Response> responses = new List<Response>();
     for (String key : keys) {
-      if (key == null) {
-        responses.add(new Response(OUTCOME_INVALID_INPUT));
-      } else if (ordersByKey.containsKey(key)) {
-        responses.add(new Response(ordersByKey.get(key)));
-      } else {
-        // Same answer for a missing order and someone else's order.
-        responses.add(new Response(OUTCOME_NOT_FOUND));
-      }
+      responses.add(buildResponseForKey(ordersByKey, key));
     }
     return responses;
   }
@@ -103,6 +103,33 @@ public with sharing class GetOrderStatusAction {
       );
     }
     return ordersByKey;
+  }
+  private static List<Response> buildResponsesForAllKeysOnQueryError(
+    List<String> keys,
+    Exception queryError
+  ) {
+    List<Response> responses = new List<Response>();
+    for (String key : keys) {
+      responses.add(
+        key == null
+          ? new Response(OUTCOME_INVALID_INPUT)
+          : new Response(OUTCOME_TEMPORARY_FAILURE, queryError.getTypeName())
+      );
+    }
+    return responses;
+  }
+
+  private static Response buildResponseForKey(
+    Map<String, Order> ordersByKey,
+    String key
+  ) {
+    if (key == null) {
+      return new Response(OUTCOME_INVALID_INPUT);
+    }
+    if (ordersByKey.containsKey(key)) {
+      return new Response(ordersByKey.get(key));
+    }
+    return new Response(OUTCOME_NOT_FOUND);
   }
 
   private static Id toContactId(String value) {
