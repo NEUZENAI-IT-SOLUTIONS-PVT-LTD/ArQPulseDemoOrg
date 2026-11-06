@@ -1,0 +1,82 @@
+{
+  "records": [
+    {
+      "attributes": {
+        "type": "Order",
+        "referenceId": "OrderA1"
+      },
+      "AccountId": "@AcctA",
+      "BillToContactId": "@ContactA",
+      "Status": "Draft",
+      "EffectiveDate": "2026-10-20",
+      "Fulfillment_Status__c": "Shipped",
+      "Expected_Delivery_Date__c": "2026-10-30",
+      "Description": "Voice POC - Alex shipped order"
+    },
+    {
+      "attributes": {
+        "type": "Order",
+        "referenceId": "OrderA2"
+      },
+      "AccountId": "@AcctA",
+      "BillToContactId": "@ContactA",
+      "Status": "Draft",
+      "EffectiveDate": "2026-10-20",
+      "Fulfillment_Status__c": "Processing",
+      "Expected_Delivery_Date__c": "2026-11-06",
+      "Description": "Voice POC - Alex processing order"
+    },
+    {
+      "attributes": {
+        "type": "Order",
+        "referenceId": "OrderB1"
+      },
+      "AccountId": "@AcctB",
+      "BillToContactId": "@ContactB",
+      "Status": "Draft",
+      "EffectiveDate": "2026-10-20",
+      "Fulfillment_Status__c": "Delivered",
+      "Expected_Delivery_Date__c": "2026-10-24",
+      "Description": "Voice POC - Priya delivered order"
+    },
+    {
+      "attributes": {
+        "type": "Order",
+        "referenceId": "OrderC1"
+      },
+      "AccountId": "@AcctC",
+      "BillToContactId": "@ContactC",
+      "Status": "Draft",
+      "EffectiveDate": "2026-10-20",
+      "Fulfillment_Status__c": "Out for Delivery",
+      "Expected_Delivery_Date__c": "2026-10-29",
+      "Description": "Voice POC - Sam out for delivery"
+    },
+    {
+      "attributes": {
+        "type": "Order",
+        "referenceId": "OrderC2"
+      },
+      "AccountId": "@AcctC",
+      "BillToContactId": "@ContactC",
+      "Status": "Draft",
+      "EffectiveDate": "2026-10-20",
+      "Fulfillment_Status__c": "Delayed",
+      "Expected_Delivery_Date__c": "2026-11-10",
+      "Description": "Voice POC - Sam delayed order"
+    },
+    {
+      "attributes": {
+        "type": "Order",
+        "referenceId": "OrderD1"
+      },
+      "AccountId": "@AcctD",
+      "BillToContactId": "@ContactD1",
+      "Status": "Draft",
+      "EffectiveDate": "2026-10-20",
+      "Fulfillment_Status__c": "Shipped",
+      "Expected_Delivery_Date__c": "2026-11-02",
+      "Description": "Voice POC - Jordan shipped order"
+    }
+  ]
+}
