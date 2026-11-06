@@ -34,7 +34,7 @@ private class GetOrderStatusActionTest {
   }
 
   @IsTest
-  static void returnsfoundwhenorderbelongstoverifiedcontact() {
+  static void returnsFoundWhenOrderBelongsToVerifiedContact() {
     Order callerOrder = getOrderOf('caller@example.com');
 
     Test.startTest();
@@ -73,7 +73,7 @@ private class GetOrderStatusActionTest {
   }
 
   @IsTest
-  static void returnsnotfoundwhenorderbelongstoanothercontact() {
+  static void returnsNotFoundWhenOrderBelongsToAnotherContact() {
     Order callerOrder = getOrderOf('caller@example.com');
     Order otherOrder = getOrderOf('other@example.com');
 
@@ -95,7 +95,7 @@ private class GetOrderStatusActionTest {
   }
 
   @IsTest
-  static void returnsnotfoundwhenordernumberdoesnotexist() {
+  static void returnsNotFoundWhenOrderNumberDoesNotExist() {
     Order callerOrder = getOrderOf('caller@example.com');
 
     Test.startTest();
@@ -114,7 +114,7 @@ private class GetOrderStatusActionTest {
   }
 
   @IsTest
-  static void returnsfoundwhencallerdropsleadingzeros() {
+  static void returnsFoundWhenCallerDropsLeadingZeros() {
     Order callerOrder = getOrderOf('caller@example.com');
     String spokenNumber = String.valueOf(
       Integer.valueOf(callerOrder.OrderNumber)
@@ -141,7 +141,7 @@ private class GetOrderStatusActionTest {
   }
 
   @IsTest
-  static void returnsinvalidinputwhencontactidisblank() {
+  static void returnsInvalidInputWhenContactIdIsBlank() {
     Order callerOrder = getOrderOf('caller@example.com');
 
     Test.startTest();
@@ -160,7 +160,7 @@ private class GetOrderStatusActionTest {
   }
 
   @IsTest
-  static void returnsinvalidinputwhenordernumberisblank() {
+  static void returnsInvalidInputWhenOrderNumberIsBlank() {
     Order callerOrder = getOrderOf('caller@example.com');
 
     Test.startTest();
@@ -179,7 +179,7 @@ private class GetOrderStatusActionTest {
   }
 
   @IsTest
-  static void returnsinvalidinputwhenidisuserid() {
+  static void returnsInvalidInputWhenIdIsAUserId() {
     Order callerOrder = getOrderOf('caller@example.com');
 
     Test.startTest();
@@ -198,7 +198,7 @@ private class GetOrderStatusActionTest {
   }
 
   @IsTest
-  static void returnsinvalidinputwhenidismalformed() {
+  static void returnsInvalidInputWhenIdIsMalformed() {
     Order callerOrder = getOrderOf('caller@example.com');
 
     Test.startTest();
@@ -217,7 +217,7 @@ private class GetOrderStatusActionTest {
   }
 
   @IsTest
-  static void answerseachrequestwithonequerywhenrequestsaremixed() {
+  static void answersEachRequestWithOneQueryWhenRequestsAreMixed() {
     Order callerOrder = getOrderOf('caller@example.com');
     Order otherOrder = getOrderOf('other@example.com');
     List<GetOrderStatusAction.Request> requests = new List<GetOrderStatusAction.Request>{
@@ -262,7 +262,7 @@ private class GetOrderStatusActionTest {
   }
 
   @IsTest
-  static void returnsemptylistwhennorequests() {
+  static void returnsEmptyListWhenNoRequests() {
     Test.startTest();
     List<GetOrderStatusAction.Response> responses = GetOrderStatusAction.getOrderStatus(
       new List<GetOrderStatusAction.Request>()
@@ -273,7 +273,7 @@ private class GetOrderStatusActionTest {
   }
 
   @IsTest
-  static void returnstemporaryfailurewhenusercannotreadorders() {
+  static void returnsTemporaryFailureWhenUserCannotReadOrders() {
     Order callerOrder = getOrderOf('caller@example.com');
 
     Test.startTest();
@@ -297,7 +297,7 @@ private class GetOrderStatusActionTest {
   }
 
   @IsTest
-  static void returnstemporaryfailurewhenusercannotreadstatusfield() {
+  static void returnsTemporaryFailureWhenUserCannotReadStatusField() {
     Order callerOrder = getOrderOf('caller@example.com');
 
     Test.startTest();

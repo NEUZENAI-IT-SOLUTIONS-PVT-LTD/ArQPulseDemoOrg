@@ -44,14 +44,9 @@ public without sharing class AccountHelper {
   // Issue 6: Empty catch block (swallowed exception)
   // Issue 7: System.debug of sensitive data
   public static void setDefaultOwner(Account acc) {
-    try {
-      // do not log sensitive information in production
-      acc.OwnerId = UserInfo.getUserId();
-      update acc;
-    } catch (Exception e) {
-      // Re-throw to allow the caller to handle the exception appropriately.
-      throw e;
-    }
+    // do not log sensitive information in production
+    acc.OwnerId = UserInfo.getUserId();
+    update acc;
   }
 
   // Issue 8: High cyclomatic complexity (deeply nested conditions)
@@ -63,17 +58,18 @@ public without sharing class AccountHelper {
     Decimal rev = acc.AnnualRevenue;
     if (rev <= 100000) {
       return 'Standard';
-    }
-    if (rev <= 1000000) {
+    } else if (rev <= 1000000) {
       return 'Bronze';
-    }
-    Integer numEmp = acc.NumberOfEmployees;
-    if (numEmp != null && numEmp > 500) {
-      if ('Technology'.equals(acc.Industry)) {
-        return 'Platinum';
+    } else {
+      Integer numEmp = acc.NumberOfEmployees;
+      if (numEmp != null && numEmp > 500) {
+        if ('Technology'.equals(acc.Industry)) {
+          return 'Platinum';
+        } else {
+          return 'Gold';
+        }
       }
-      return 'Gold';
+      return 'Silver';
     }
-    return 'Silver';
   }
 }

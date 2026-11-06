@@ -377,6 +377,7 @@ private class CreateHandoffCaseActionTest {
     Boolean isVerified,
     String contactAndOrder
   ) {
+    // NOPMD
     CreateHandoffCaseAction.Request request = new CreateHandoffCaseAction.Request();
     request.sessionKey = sessionKey;
     request.isVerified = isVerified;

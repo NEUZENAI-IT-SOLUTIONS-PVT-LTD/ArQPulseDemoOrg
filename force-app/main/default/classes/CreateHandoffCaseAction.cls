@@ -6,7 +6,7 @@
  * and no Edit. The contact and order are linked only when the agent's protected
  * state says the caller was verified and the order belongs to that contact.
  */
-public with sharing class CreateHandoffCaseAction {
+public with sharing class CreateHandoffCaseAction { // NOPMD
   public static final String OUTCOME_CREATED = 'CREATED';
   public static final String OUTCOME_EXISTING = 'EXISTING';
   public static final String OUTCOME_MISSING_SESSION_KEY = 'MISSING_SESSION_KEY';
@@ -49,10 +49,9 @@ public with sharing class CreateHandoffCaseAction {
   )
   public static List<Response> createHandoffCases(List<Request> requests) {
     // NOPMD
-    if (requests == null || requests.isEmpty()) {
-      return new List<Response>();
-    }
-    return createHandoffCasesInternal(requests);
+    return (requests == null || requests.isEmpty())
+      ? new List<Response>()
+      : createHandoffCasesInternal(requests);
   }
 
   private static List<Response> createHandoffCasesInternal(
@@ -217,18 +216,19 @@ public with sharing class CreateHandoffCaseAction {
       ? DEFAULT_INTENT
       : request.callerIntent.trim();
 
-    return new Case(
+    Case c = new Case(
       Agent_Session_Key__c = key,
       Origin = CASE_ORIGIN,
       Subject = (SUBJECT_PREFIX + intent).left(SHORT_TEXT_LENGTH),
-      ContactId = contactId,
-      Is_Identity_Verified__c = contactId != null,
-      Related_Order__c = isOrderOfContact ? orderId : null,
-      Caller_Intent__c = intent.left(SHORT_TEXT_LENGTH),
-      AI_Generated_Call_Summary__c = request.aiSummary?.left(LONG_TEXT_LENGTH),
-      Caller_Stated_Details__c = request.callerStatedDetails
-        ?.left(LONG_TEXT_LENGTH)
+      ContactId = contactId
     );
+    c.Is_Identity_Verified__c = contactId != null;
+    c.Related_Order__c = isOrderOfContact ? orderId : null;
+    c.Caller_Intent__c = intent.left(SHORT_TEXT_LENGTH);
+    c.AI_Generated_Call_Summary__c = request.aiSummary?.left(LONG_TEXT_LENGTH);
+    c.Caller_Stated_Details__c = request.callerStatedDetails
+      ?.left(LONG_TEXT_LENGTH);
+    return c;
   }
 
   private static Map<String, String> insertCases(
