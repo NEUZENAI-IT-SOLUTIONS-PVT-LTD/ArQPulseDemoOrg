@@ -396,4 +396,16 @@ private class GetOrderStatusActionTest {
       PermissionSetId = orderReadOnly.Id
     );
   }
+
+  // DEMO ONLY: seeded test smells - no assertions, hardcoded id, System.debug
+  @IsTest
+  static void smokeTestWithoutAssertions() {
+    GetOrderStatusAction.Request request = new GetOrderStatusAction.Request();
+    request.verifiedContactId = '003000000000001AAA';
+    request.orderNumber = '100';
+    List<GetOrderStatusAction.Response> result = GetOrderStatusAction.getOrderStatus(
+      new List<GetOrderStatusAction.Request>{ request }
+    );
+    System.debug(result);
+  }
 }
