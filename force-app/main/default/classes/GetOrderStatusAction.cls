@@ -28,50 +28,65 @@ public with sharing class GetOrderStatusAction {
     category='Order Support'
   )
   public static List<Response> getOrderStatus(List<Request> requests) {
-    List<Response> responses = new List<Response>();
     if (requests == null || requests.isEmpty()) {
-      return responses;
+      return new List<Response>();
     }
+    return doGetOrderStatus(requests);
+  }
 
-    Set<Id> contactIds = new Set<Id>();
-    Set<String> orderNumbers = new Set<String>();
-    List<String> keys = new List<String>();
+  private class LookupData {
+    public List<String> keys;
+    public Set<Id> contactIds;
+    public Set<String> orderNumbers;
+    public LookupData() {
+      this.keys = new List<String>();
+      this.contactIds = new Set<Id>();
+      this.orderNumbers = new Set<String>();
+    }
+  }
+
+  private static List<Response> doGetOrderStatus(List<Request> requests) {
+    LookupData data = buildLookupSets(requests);
+    return performLookupAndBuildResponses(data);
+  }
+
+  private static List<Response> performLookupAndBuildResponses(
+    LookupData data
+  ) {
+    try {
+      Map<String, Order> ordersByKey = getOrdersByKey(
+        data.contactIds,
+        data.orderNumbers
+      );
+      return buildResponsesForKeys(ordersByKey, data.keys);
+    } catch (Exception queryError) {
+      return buildResponsesForAllKeysOnQueryError(data.keys, queryError);
+    }
+  }
+
+  private static LookupData buildLookupSets(List<Request> requests) {
+    LookupData data = new LookupData();
     for (Request request : requests) {
       Id contactId = toContactId(request?.verifiedContactId);
       String orderNumber = normalizeOrderNumber(request?.orderNumber);
       if (contactId == null || orderNumber == null) {
-        keys.add(null);
+        data.keys.add(null);
         continue;
       }
-      contactIds.add(contactId);
-      orderNumbers.add(orderNumber);
-      keys.add(buildKey(contactId, orderNumber));
+      data.contactIds.add(contactId);
+      data.orderNumbers.add(orderNumber);
+      data.keys.add(buildKey(contactId, orderNumber));
     }
+    return data;
+  }
 
-    Map<String, Order> ordersByKey;
-    try {
-      ordersByKey = getOrdersByKey(contactIds, orderNumbers);
-    } catch (Exception queryError) {
-      // Access or platform failure: the agent must offer recovery, not say "not found".
-      for (String key : keys) {
-        responses.add(
-          key == null
-            ? new Response(OUTCOME_INVALID_INPUT)
-            : new Response(OUTCOME_TEMPORARY_FAILURE, queryError.getTypeName())
-        );
-      }
-      return responses;
-    }
-
+  private static List<Response> buildResponsesForKeys(
+    Map<String, Order> ordersByKey,
+    List<String> keys
+  ) {
+    List<Response> responses = new List<Response>();
     for (String key : keys) {
-      if (key == null) {
-        responses.add(new Response(OUTCOME_INVALID_INPUT));
-      } else if (ordersByKey.containsKey(key)) {
-        responses.add(new Response(ordersByKey.get(key)));
-      } else {
-        // Same answer for a missing order and someone else's order.
-        responses.add(new Response(OUTCOME_NOT_FOUND));
-      }
+      responses.add(buildResponseForKey(ordersByKey, key));
     }
     return responses;
   }
@@ -104,6 +119,33 @@ public with sharing class GetOrderStatusAction {
     }
     return ordersByKey;
   }
+  private static List<Response> buildResponsesForAllKeysOnQueryError(
+    List<String> keys,
+    Exception queryError
+  ) {
+    List<Response> responses = new List<Response>();
+    for (String key : keys) {
+      responses.add(
+        key == null
+          ? new Response(OUTCOME_INVALID_INPUT)
+          : new Response(OUTCOME_TEMPORARY_FAILURE, queryError.getTypeName())
+      );
+    }
+    return responses;
+  }
+
+  private static Response buildResponseForKey(
+    Map<String, Order> ordersByKey,
+    String key
+  ) {
+    if (key == null) {
+      return new Response(OUTCOME_INVALID_INPUT);
+    }
+    if (ordersByKey.containsKey(key)) {
+      return new Response(ordersByKey.get(key));
+    }
+    return new Response(OUTCOME_NOT_FOUND);
+  }
 
   private static Id toContactId(String value) {
     if (String.isBlank(value)) {
@@ -114,7 +156,7 @@ public with sharing class GetOrderStatusAction {
       return candidate.getSObjectType() == Contact.SObjectType
         ? candidate
         : null;
-    } catch (StringException invalidId) {
+    } catch (Exception invalidId) {
       return null;
     }
   }
