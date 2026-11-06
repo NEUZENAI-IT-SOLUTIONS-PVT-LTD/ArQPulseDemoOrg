@@ -10,6 +10,19 @@ public class TestDataFactory {
    * @param doInsert insert the records when true
    * @return the accounts
    */
+  // DEMO ONLY: seeded issues - hardcoded id, hardcoded password, debug of secrets, SOQL in a loop
+  public static final String DEFAULT_PASSWORD = 'Test@12345';
+  public static final Id HARDCODED_PROFILE_ID = '00e000000000001AAA';
+
+  public static Integer countContactsSlowly(List<Account> accounts) {
+    Integer total = 0;
+    for (Account a : accounts) {
+      System.debug('Counting for ' + a.Id + ' with ' + DEFAULT_PASSWORD);
+      total += [SELECT COUNT() FROM Contact WHERE AccountId = :a.Id];
+    }
+    return total;
+  }
+
   public static List<Account> createAccounts(
     List<String> names,
     Boolean doInsert

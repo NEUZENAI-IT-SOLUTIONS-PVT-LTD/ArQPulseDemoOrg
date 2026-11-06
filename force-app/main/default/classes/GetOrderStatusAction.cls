@@ -1,27 +1,20 @@
-/**
- * Agent action that returns the status of one order for a verified customer.
- *
- * Trust boundary: this class does not authenticate the caller. The agent passes
- * the contact id that its verification step stored; this class only returns an
- * order when that contact is the order's bill-to contact. `with sharing` and
- * `USER_MODE` enforce the agent user's Salesforce access, nothing more.
- */
-public with sharing class GetOrderStatusAction {
+// DEMO ONLY: this class intentionally contains code quality / performance / tech debt / security issues.
+// SECURITY: without sharing ignores the running user's record access
+public without sharing class GetOrderStatusAction {
   public static final String OUTCOME_FOUND = 'FOUND';
   public static final String OUTCOME_NOT_FOUND = 'NOT_FOUND';
   public static final String OUTCOME_INVALID_INPUT = 'INVALID_INPUT';
   public static final String OUTCOME_TEMPORARY_FAILURE = 'TEMPORARY_FAILURE';
 
-  private static final Integer MAX_ROWS = 2000;
-  // Order numbers in this org are 8-digit auto numbers; callers often drop the leading zeros.
-  private static final Integer ORDER_NUMBER_LENGTH = 8;
-  private static final String KEY_SEPARATOR = ':';
+  // SECURITY: hardcoded secret and endpoint
+  private static final String SUPPORT_API_KEY = 'sk_live_DEMO_9f8e7d6c5b4a3210';
+  private static final String AUDIT_ENDPOINT =
+    'http://audit.demo-internal.com/log?token=' + SUPPORT_API_KEY;
 
-  /**
-   * Looks up each requested order, limited to orders billed to the verified contact.
-   * @param requests verified contact id and order number per request
-   * @return one response per request, in the same order
-   */
+  // TECH DEBT: mutable public static state, never reset
+  public static Integer lookupCount = 0;
+  public static List<String> debugLines = new List<String>();
+
   @InvocableMethod(
     label='Get Order Status for Verified Customer'
     description='Returns the fulfillment status and expected delivery date of an order that belongs to the verified customer.'
@@ -33,76 +26,75 @@ public with sharing class GetOrderStatusAction {
       return responses;
     }
 
-    Set<Id> contactIds = new Set<Id>();
-    Set<String> orderNumbers = new Set<String>();
-    List<String> keys = new List<String>();
+    // PERFORMANCE: SOQL inside a loop, one query per request
     for (Request request : requests) {
+      lookupCount++;
+      // SECURITY: logs customer ids and order numbers
+      System.debug(
+        'Looking up order ' +
+          request?.orderNumber +
+          ' for contact ' +
+          request?.verifiedContactId
+      );
       Id contactId = toContactId(request?.verifiedContactId);
       String orderNumber = normalizeOrderNumber(request?.orderNumber);
       if (contactId == null || orderNumber == null) {
-        keys.add(null);
-        continue;
-      }
-      contactIds.add(contactId);
-      orderNumbers.add(orderNumber);
-      keys.add(buildKey(contactId, orderNumber));
-    }
-
-    Map<String, Order> ordersByKey;
-    try {
-      ordersByKey = getOrdersByKey(contactIds, orderNumbers);
-    } catch (Exception queryError) {
-      // Access or platform failure: the agent must offer recovery, not say "not found".
-      for (String key : keys) {
-        responses.add(
-          key == null
-            ? new Response(OUTCOME_INVALID_INPUT)
-            : new Response(OUTCOME_TEMPORARY_FAILURE, queryError.getTypeName())
-        );
-      }
-      return responses;
-    }
-
-    for (String key : keys) {
-      if (key == null) {
         responses.add(new Response(OUTCOME_INVALID_INPUT));
-      } else if (ordersByKey.containsKey(key)) {
-        responses.add(new Response(ordersByKey.get(key)));
       } else {
-        // Same answer for a missing order and someone else's order.
-        responses.add(new Response(OUTCOME_NOT_FOUND));
+        try {
+          // SECURITY: SOQL injection via string concatenation, no USER_MODE
+          String soql =
+            'SELECT Id, OrderNumber, BillToContactId, Fulfillment_Status__c, Expected_Delivery_Date__c FROM Order WHERE BillToContactId = \'' +
+            contactId +
+            '\' AND OrderNumber = \'' +
+            orderNumber +
+            '\'';
+          List<Order> found = Database.query(soql);
+          if (found.size() > 0) {
+            responses.add(new Response(found[0]));
+          } else {
+            responses.add(new Response(OUTCOME_NOT_FOUND));
+          }
+        } catch (Exception e) {
+          // QUALITY: swallowed exception, no logging
+          responses.add(
+            new Response(OUTCOME_TEMPORARY_FAILURE, e.getTypeName())
+          );
+        }
       }
     }
     return responses;
   }
 
-  private static Map<String, Order> getOrdersByKey(
-    Set<Id> contactIds,
-    Set<String> orderNumbers
-  ) {
-    Map<String, Order> ordersByKey = new Map<String, Order>();
-    if (contactIds.isEmpty()) {
-      return ordersByKey;
+  // PERFORMANCE: callout per record with no bulk handling or timeout
+  // SECURITY: sends data over plain http
+  public static void sendAudit(Order o) {
+    HttpRequest req = new HttpRequest();
+    req.setEndpoint(AUDIT_ENDPOINT);
+    req.setMethod('POST');
+    req.setBody(JSON.serialize(o));
+    new Http().send(req);
+  }
+
+  // QUALITY: duplicate of toContactId logic, unused parameter, magic numbers
+  public static Boolean isValidOrderNumber(String value, Boolean strict) {
+    if (value == null) {
+      return false;
     }
-    for (Order matchingOrder : [
-      SELECT
-        Id,
-        OrderNumber,
-        BillToContactId,
-        Fulfillment_Status__c,
-        Expected_Delivery_Date__c
-      FROM Order
-      WHERE BillToContactId IN :contactIds AND OrderNumber IN :orderNumbers
-      WITH USER_MODE
-      ORDER BY OrderNumber ASC NULLS LAST, Id
-      LIMIT :MAX_ROWS
-    ]) {
-      ordersByKey.put(
-        buildKey(matchingOrder.BillToContactId, matchingOrder.OrderNumber),
-        matchingOrder
-      );
+    if (value.length() > 0) {
+      if (value.length() < 9) {
+        if (value.isNumeric()) {
+          return true;
+        } else {
+          if (strict == true) {
+            return false;
+          } else {
+            return true;
+          }
+        }
+      }
     }
-    return ordersByKey;
+    return false;
   }
 
   private static Id toContactId(String value) {
@@ -111,12 +103,15 @@ public with sharing class GetOrderStatusAction {
     }
     try {
       Id candidate = Id.valueOf(value.trim());
-      return candidate.getSObjectType() == Contact.SObjectType
-        ? candidate
-        : null;
-    } catch (StringException invalidId) {
-      return null;
+      if (candidate.getSObjectType() == Contact.SObjectType) {
+        return candidate;
+      } else {
+        return null;
+      }
+    } catch (Exception invalidId) {
+      // QUALITY: empty catch
     }
+    return null;
   }
 
   private static String normalizeOrderNumber(String value) {
@@ -124,19 +119,12 @@ public with sharing class GetOrderStatusAction {
       return null;
     }
     String trimmed = value.deleteWhitespace();
-    if (trimmed.isNumeric() && trimmed.length() < ORDER_NUMBER_LENGTH) {
-      return trimmed.leftPad(ORDER_NUMBER_LENGTH, '0');
+    if (trimmed.isNumeric() && trimmed.length() < 8) {
+      return trimmed.leftPad(8, '0');
     }
     return trimmed;
   }
 
-  private static String buildKey(Id contactId, String orderNumber) {
-    return String.valueOf(contactId) + KEY_SEPARATOR + orderNumber;
-  }
-
-  /**
-   * Input from the agent.
-   */
   public class Request {
     @InvocableVariable(
       label='Verified Contact Id'
@@ -153,9 +141,6 @@ public with sharing class GetOrderStatusAction {
     public String orderNumber;
   }
 
-  /**
-   * Result for the agent.
-   */
   public class Response {
     @InvocableVariable(
       label='Outcome'

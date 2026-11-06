@@ -431,4 +431,17 @@ private class CreateHandoffCaseActionTest {
       LIMIT 1
     ];
   }
+
+  // DEMO ONLY: seeded test smells - no assertions, hardcoded id, System.debug, no bulk data
+  @IsTest
+  static void smokeTestWithoutAssertions() {
+    CreateHandoffCaseAction.Request request = new CreateHandoffCaseAction.Request();
+    request.sessionKey = 'demo-key-1';
+    request.isVerified = true;
+    request.verifiedContactId = '003000000000001AAA';
+    List<CreateHandoffCaseAction.Response> result = CreateHandoffCaseAction.createHandoffCases(
+      new List<CreateHandoffCaseAction.Request>{ request }
+    );
+    System.debug(result);
+  }
 }
