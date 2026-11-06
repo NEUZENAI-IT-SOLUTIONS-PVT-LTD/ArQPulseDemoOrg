@@ -354,7 +354,7 @@ private class GetOrderStatusActionTest {
     return [
       SELECT Id
       FROM User
-      WHERE LastName = :lastName AND Email LIKE '%@example.com'
+      WHERE LastName = :lastName
       LIMIT 1
     ];
   }

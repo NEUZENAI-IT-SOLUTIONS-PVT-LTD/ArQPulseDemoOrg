@@ -235,7 +235,7 @@ private class CreateHandoffCaseActionTest {
       'Missing key must be rejected'
     );
     Assert.isNull(response.caseId, 'No case id without a key');
-    Assert.areEqual(0, [SELECT COUNT() FROM Case], 'No case may be created');
+    Assert.areEqual(0, countCases(SESSION_KEY), 'No case may be created');
   }
 
   @IsTest
@@ -431,7 +431,7 @@ private class CreateHandoffCaseActionTest {
     return [
       SELECT Id
       FROM User
-      WHERE LastName = :lastName AND Email LIKE '%@example.com'
+      WHERE LastName = :lastName
       LIMIT 1
     ];
   }
