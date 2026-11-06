@@ -1,0 +1,318 @@
+system:
+    instructions: "You are the voice assistant for customer order support. Callers are listening, not reading: answer in one or two short sentences, never read links, lists or formatting, and stop speaking when the caller starts talking. Say dates, numbers and order numbers in natural spoken form. Only state facts that an action returned; never guess. You may repeat back what the caller just said so they can confirm it, but never reveal anything from customer records except the verified caller's own order status, and never say whether an email matched an account. If you are unsure or an action fails, offer to connect the caller with a specialist."
+    messages:
+        welcome: "Hi, thanks for calling order support. I'm an automated assistant. How can I help you today?"
+        error: "Sorry, I had trouble with that. Could you say it again?"
+
+access:
+    default_agent_user: "order_support_voice_agent2@00dak00001lzbb3eaj.ext"
+
+config:
+    developer_name: "Order_Support_Voice_Agent"
+    agent_label: "Order Support Voice Agent"
+    description: "Voice agent that verifies callers by emailed code, tells them the status of their own orders, and hands off to a specialist with context."
+    agent_type: "AgentforceServiceAgent"
+
+variables:
+    EndUserId: linked string
+        source: @MessagingSession.MessagingEndUserId
+        description: "Messaging end user id"
+    RoutableId: linked string
+        source: @MessagingSession.Id
+        description: "Messaging session id; handoff key when there is no voice call"
+    VoiceCallId: linked string
+        source: @VoiceCall.Id
+        description: "This variable may also be referred to as Voice Call Id"
+    is_verified: mutable boolean = False
+        description: "True only after the check_code action returned isVerified"
+    verified_contact_id: mutable string = ""
+        description: "Customer id returned by check_code; trusted only when is_verified is True"
+    verified_customer_type: mutable string = ""
+        description: "Contact or User, returned by check_code"
+    challenge_key: mutable string = ""
+        description: "Authentication key of the current emailed code"
+    challenge_customer_id: mutable string = ""
+        description: "Customer id the current code was sent for"
+    challenge_customer_type: mutable string = ""
+        description: "Customer type the current code was sent for"
+    code_send_count: mutable number = 0
+        description: "Codes sent this session"
+    code_check_attempts: mutable number = 0
+        description: "Codes checked this session"
+    last_found_order_id: mutable string = ""
+        description: "Order id from the most recent order lookup; empty unless FOUND"
+    lookup_attempts: mutable number = 0
+        description: "Order lookups this session"
+    handoff_recorded: mutable boolean = False
+        description: "True after the handoff case action ran"
+
+language:
+    default_locale: "en_US"
+    additional_locales: ""
+    all_additional_locales: False
+
+# G2: this org has no access to Voice features yet ("Organization does not have access to Voice features").
+# Uncomment once Agentforce Voice is enabled. Both blocks were compile-validated (docs/voice-poc/spike-results.md).
+# modality voice:
+#     voice_id: "UgBBYS2sOqTuMpoF3BR0"
+#     outbound_speed: 1
+#     outbound_stability: 0.65
+#     outbound_similarity: 0.75
+
+connection customer_web_client:
+    adaptive_response_allowed: True
+
+# connection telephony:
+#     outbound_route_type: "OmniChannelFlow"
+#     outbound_route_name: "flow://Order_Support_Voice_Escalation"
+#     escalation_message: "I'm connecting you with an order specialist now."
+
+connection messaging:
+    outbound_route_type: "OmniChannelFlow"
+    outbound_route_name: "flow://Order_Support_Voice_Escalation"
+    escalation_message: "I'm connecting you with an order specialist now."
+
+start_agent router:
+    description: "Routes every turn: verified callers to order status, everyone else to verification"
+    reasoning:
+        instructions: ->
+            if @variables.is_verified == True and @variables.verified_customer_type == "Contact":
+                transition to @subagent.order_status
+            else:
+                transition to @subagent.verify_customer
+
+subagent verify_customer:
+    label: "Verify Customer"
+    description: "Verifies the caller with a code emailed to the address on file"
+
+    actions:
+        send_code:
+            description: "Emails a one-time verification code to the address the caller gives"
+            target: "flow://SvcCopilotTmpl__SendVerificationCode"
+            source: "SvcCopilotTmpl__SendEmailVerificationCode"
+            include_in_progress_indicator: True
+            progress_indicator_message: "Sending your code"
+            inputs:
+                customerToVerify: string
+                    description: "Email address the caller says, confirmed back to them first"
+                    is_required: True
+            outputs:
+                verificationCode: string
+                    description: "Generated code. Secret; never shown or stored."
+                    filter_from_agent: True
+                authenticationKey: string
+                    description: "Key of this code challenge"
+                    filter_from_agent: True
+                customerId: string
+                    description: "Id of the customer the code was sent for"
+                    filter_from_agent: True
+                customerType: string
+                    description: "User or Contact"
+                    filter_from_agent: True
+                verificationMessage: string
+                    description: "Generic message for the caller"
+
+        check_code:
+            description: "Checks the code the caller says against the emailed code"
+            target: "flow://SvcCopilotTmpl__VerifyCode"
+            source: "SvcCopilotTmpl__VerifyCustomer"
+            include_in_progress_indicator: True
+            progress_indicator_message: "Checking your code"
+            inputs:
+                customerCode: string
+                    description: "Code the caller says, digits only, leading zeros kept"
+                    is_required: True
+                customerId: string
+                    description: "Customer id of the current challenge"
+                customerType: string
+                    description: "Customer type of the current challenge"
+                authenticationKey: string
+                    description: "Key of the current challenge"
+            outputs:
+                isVerified: boolean
+                    description: "Whether the code matched"
+                customerId: string
+                    description: "Verified customer id"
+                    filter_from_agent: True
+                customerType: string
+                    description: "User or Contact"
+                    filter_from_agent: True
+                messageAfterVerification: string
+                    description: "Message for the caller"
+
+    reasoning:
+        instructions: ->
+            if @variables.is_verified == False and @variables.code_check_attempts >= 2:
+                | Two codes did not match. Tell the caller you can't verify them right now and that you will connect them with a specialist. Do not share any order information.
+                transition to @subagent.handoff
+
+            if @variables.is_verified == True and @variables.verified_customer_type == "Contact":
+                | The caller is verified. Thank them and ask for the order number they want to check.
+            else if @variables.is_verified == True:
+                | This account can't use order lookup by phone. Offer to connect the caller with a specialist.
+            else if @variables.challenge_key != "":
+                | A code was sent. Ask the caller to read the code from their email. Repeat it back digit by digit, keeping any leading zeros, and check it only after they confirm.
+                  If they did not get the email or ask for a new code, call the send action again with the same or a corrected address.
+                  Only say a code was sent after the send action succeeded in this turn; never claim an action you did not run.
+            else:
+                | The only way to verify is a code emailed to the address on the caller's account. Never ask for phone numbers, addresses, names or other details.
+                  If the caller asks for a person, transfer them. Otherwise, to protect their account, ask for the email address on their account. Repeat it back and confirm it before sending a code. Say that a code is on its way only after the send action succeeded; never say whether the address matched an account.
+
+            if @variables.code_send_count >= 3 and @variables.is_verified == False:
+                | No more codes can be sent on this call. Offer to connect the caller with a specialist.
+
+        actions:
+            send: @actions.send_code
+                description: "Send a verification code to the confirmed email"
+                available when @variables.code_send_count < 3
+                with customerToVerify = ...
+                set @variables.is_verified = False
+                set @variables.verified_contact_id = ""
+                set @variables.verified_customer_type = ""
+                set @variables.last_found_order_id = ""
+                set @variables.challenge_key = @outputs.authenticationKey
+                set @variables.challenge_customer_id = @outputs.customerId
+                set @variables.challenge_customer_type = @outputs.customerType
+                set @variables.code_send_count = @variables.code_send_count + 1
+
+            check: @actions.check_code
+                description: "Check the confirmed code"
+                available when @variables.challenge_key != "" and @variables.is_verified == False and @variables.code_check_attempts < 2
+                with customerCode = ...
+                with customerId = @variables.challenge_customer_id
+                with customerType = @variables.challenge_customer_type
+                with authenticationKey = @variables.challenge_key
+                set @variables.is_verified = @outputs.isVerified
+                set @variables.verified_contact_id = @outputs.customerId
+                set @variables.verified_customer_type = @outputs.customerType
+                set @variables.code_check_attempts = @variables.code_check_attempts + 1
+
+            go_orders: @utils.transition to @subagent.order_status
+                description: "Caller is verified and gives or asks about an order"
+                available when @variables.is_verified == True and @variables.verified_customer_type == "Contact"
+
+            go_person: @utils.transition to @subagent.handoff
+                description: "Caller asks for a person, cannot get the email, or verification failed"
+
+subagent order_status:
+    label: "Order Status"
+    description: "Tells a verified caller the status of their own order"
+
+    actions:
+        get_order_status:
+            description: "Looks up an order that belongs to the verified customer"
+            target: "apex://GetOrderStatusAction"
+            include_in_progress_indicator: True
+            progress_indicator_message: "Looking up your order"
+            inputs:
+                verifiedContactId: string
+                    description: "Verified contact id"
+                    is_required: True
+                orderNumber: string
+                    description: "Order number the caller confirmed, digits only"
+                    is_required: True
+            outputs:
+                outcome: string
+                    description: "FOUND, NOT_FOUND, INVALID_INPUT or TEMPORARY_FAILURE"
+                orderId: string
+                    description: "Order id, used only for the handoff"
+                    filter_from_agent: True
+                orderNumber: string
+                    description: "Order number"
+                fulfillmentStatus: string
+                    description: "Shipping stage"
+                expectedDeliveryDate: date
+                    description: "Expected delivery date"
+                errorType: string
+                    description: "Support detail on failure. Never for the caller."
+                    filter_from_agent: True
+
+    reasoning:
+        instructions: ->
+            if @variables.is_verified == False or @variables.verified_customer_type != "Contact":
+                transition to @subagent.verify_customer
+
+            | Ask for the order number if you don't have it, repeat it back and confirm it, then say "One moment" and look it up.
+              Answer from the lookup result only:
+              FOUND: say the order's fulfillment status and the expected delivery date in natural speech, for example "Your order has shipped. It should arrive on Friday, October thirtieth."
+              NOT_FOUND: say you couldn't find that order on their account and ask them to check the number. Never suggest it belongs to someone else.
+              INVALID_INPUT: ask for the order number again.
+              TEMPORARY_FAILURE: apologise that you can't look it up right now and offer a specialist.
+              If the caller says they are a different person or wants to use another email, they must verify again.
+              After answering, ask if there is anything else.
+
+            if @variables.lookup_attempts >= 2 and @variables.last_found_order_id == "":
+                | You have not found an order after several tries. Offer to connect the caller with a specialist.
+
+        actions:
+            lookup: @actions.get_order_status
+                description: "Look up the confirmed order number for the verified caller"
+                available when @variables.is_verified == True and @variables.verified_customer_type == "Contact"
+                with verifiedContactId = @variables.verified_contact_id
+                with orderNumber = ...
+                set @variables.last_found_order_id = @outputs.orderId
+                set @variables.lookup_attempts = @variables.lookup_attempts + 1
+
+            reverify: @utils.transition to @subagent.verify_customer
+                description: "Caller claims a different identity or wants to verify another email"
+
+            go_person: @utils.transition to @subagent.handoff
+                description: "Caller asks for a person, or the lookup failed"
+
+subagent handoff:
+    label: "Specialist Handoff"
+    description: "Records the call context and transfers the caller to a specialist"
+
+    actions:
+        create_handoff_case:
+            description: "Creates the handoff case for the specialist"
+            target: "apex://CreateHandoffCaseAction"
+            inputs:
+                sessionKey: string
+                    description: "Call or session id from runtime context"
+                isVerified: boolean
+                    description: "Verification result"
+                verifiedContactId: string
+                    description: "Verified contact id"
+                orderId: string
+                    description: "Order id found by the lookup"
+                callerIntent: string
+                    description: "Few words on why the caller called, for example order status"
+                aiSummary: string
+                    description: "Two short sentences: what the caller wanted and what the actions returned"
+                callerStatedDetails: string
+                    description: "Details the caller said that no action confirmed, such as an email or order number"
+            outputs:
+                outcome: string
+                    description: "CREATED, EXISTING, MISSING_SESSION_KEY or FAILED"
+                    filter_from_agent: True
+                caseId: string
+                    description: "Handoff case id"
+                    filter_from_agent: True
+                errorType: string
+                    description: "Support detail on failure"
+                    filter_from_agent: True
+
+    reasoning:
+        instructions: ->
+            if @variables.handoff_recorded == False:
+                | Tell the caller you are connecting them with a specialist. First record the handoff: give a few words of intent, a two-sentence summary that separates what the caller said from what lookups returned, and any details the caller stated that were not confirmed.
+            else:
+                | The handoff is recorded. Transfer the caller now.
+            | Transfer the caller even if recording the handoff did not work. Never read out a case number.
+
+        actions:
+            record: @actions.create_handoff_case
+                description: "Record the handoff context for the specialist"
+                available when @variables.handoff_recorded == False
+                with sessionKey = @variables.VoiceCallId if @variables.VoiceCallId else @variables.RoutableId
+                with isVerified = @variables.is_verified
+                with verifiedContactId = @variables.verified_contact_id
+                with orderId = @variables.last_found_order_id
+                with callerIntent = ...
+                with aiSummary = ...
+                with callerStatedDetails = ...
+                set @variables.handoff_recorded = True
+
+            transfer: @utils.escalate
+                description: "Transfer the caller to an order specialist"

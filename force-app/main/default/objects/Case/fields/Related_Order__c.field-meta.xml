@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Related_Order__c</fullName>
+    <label>Related Order</label>
+    <description
+  >Order returned by the voice agent's secure order lookup during the call. Set only for orders that belong to the verified caller.</description>
+    <inlineHelpText
+  >The order the verified caller asked about. Empty when no order was found or the caller was not verified.</inlineHelpText>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <referenceTo>Order</referenceTo>
+    <relationshipLabel>Handoff Cases</relationshipLabel>
+    <relationshipName>Handoff_Cases</relationshipName>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <type>Lookup</type>
+</CustomField>
