@@ -34,45 +34,50 @@ public with sharing class GetOrderStatusAction {
     return doGetOrderStatus(requests);
   }
 
-  private static List<Response> doGetOrderStatus(List<Request> requests) {
-    List<String> keys = new List<String>();
-    Set<Id> contactIds = new Set<Id>();
-    Set<String> orderNumbers = new Set<String>();
-    buildLookupSets(requests, keys, contactIds, orderNumbers);
-
-    return performLookupAndBuildResponses(keys, contactIds, orderNumbers);
-  }
-
-  private static List<Response> performLookupAndBuildResponses(
-    List<String> keys,
-    Set<Id> contactIds,
-    Set<String> orderNumbers
-  ) {
-    try {
-      Map<String, Order> ordersByKey = getOrdersByKey(contactIds, orderNumbers);
-      return buildResponsesForKeys(ordersByKey, keys);
-    } catch (Exception queryError) {
-      return buildResponsesForAllKeysOnQueryError(keys, queryError);
+  private class LookupData {
+    public List<String> keys;
+    public Set<Id> contactIds;
+    public Set<String> orderNumbers;
+    public LookupData() {
+      this.keys = new List<String>();
+      this.contactIds = new Set<Id>();
+      this.orderNumbers = new Set<String>();
     }
   }
 
-  private static void buildLookupSets(
-    List<Request> requests,
-    List<String> keys,
-    Set<Id> contactIds,
-    Set<String> orderNumbers
+  private static List<Response> doGetOrderStatus(List<Request> requests) {
+    LookupData data = buildLookupSets(requests);
+    return performLookupAndBuildResponses(data);
+  }
+
+  private static List<Response> performLookupAndBuildResponses(
+    LookupData data
   ) {
+    try {
+      Map<String, Order> ordersByKey = getOrdersByKey(
+        data.contactIds,
+        data.orderNumbers
+      );
+      return buildResponsesForKeys(ordersByKey, data.keys);
+    } catch (Exception queryError) {
+      return buildResponsesForAllKeysOnQueryError(data.keys, queryError);
+    }
+  }
+
+  private static LookupData buildLookupSets(List<Request> requests) {
+    LookupData data = new LookupData();
     for (Request request : requests) {
       Id contactId = toContactId(request?.verifiedContactId);
       String orderNumber = normalizeOrderNumber(request?.orderNumber);
       if (contactId == null || orderNumber == null) {
-        keys.add(null);
+        data.keys.add(null);
         continue;
       }
-      contactIds.add(contactId);
-      orderNumbers.add(orderNumber);
-      keys.add(buildKey(contactId, orderNumber));
+      data.contactIds.add(contactId);
+      data.orderNumbers.add(orderNumber);
+      data.keys.add(buildKey(contactId, orderNumber));
     }
+    return data;
   }
 
   private static List<Response> buildResponsesForKeys(
